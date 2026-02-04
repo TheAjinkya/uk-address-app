@@ -13,7 +13,7 @@
           matInput
           formControlName="postcode"
           [matAutocomplete]="auto"
-          placeholder="e.g., SW1A 1AA"
+          placeholder="e.g., E1, SW1A 1AA"
           autocomplete="off">
         
         <button 
@@ -21,9 +21,14 @@
           matSuffix 
           *ngIf="searchForm.get('postcode')?.value"
           (click)="clearSearch()"
-          type="button">
+          type="button"
+          matTooltip="Clear search">
           <mat-icon>close</mat-icon>
         </button>
+
+        <mat-hint *ngIf="suggestionCount$ | async as count">
+          {{ count }} suggestion{{ count !== 1 ? 's' : '' }} found
+        </mat-hint>
 
         <mat-error *ngIf="searchForm.get('postcode')?.hasError('required')">
           Postcode is required
@@ -35,7 +40,8 @@
 
       <mat-autocomplete 
         #auto="matAutocomplete" 
-        (optionSelected)="onPostcodeSelected($event.option.value)">
+        (optionSelected)="onPostcodeSelected($event.option.value)"
+        class="postcode-autocomplete">
         <mat-option 
           *ngFor="let suggestion of suggestions$ | async" 
           [value]="suggestion">
@@ -48,6 +54,7 @@
         color="primary" 
         type="submit"
         [disabled]="!searchForm.valid || (loading$ | async)">
+        <mat-icon>search</mat-icon>
         Search
       </button>
 
@@ -55,7 +62,8 @@
         mat-raised-button 
         type="button"
         (click)="useCurrentLocation()"
-        class="location-btn">
+        class="location-btn"
+        matTooltip="Find postcodes near you">
         <mat-icon>my_location</mat-icon>
         Use My Location
       </button>
@@ -71,50 +79,169 @@
     [message]="error">
   </app-error-message>
 
-  <!-- Selected Address Display -->
-  <div *ngIf="selectedAddress$ | async as address" class="address-details">
-    <mat-card>
+  <!-- Selected Postcode Details -->
+  <div *ngIf="selectedPostcode$ | async as postcode" class="postcode-details">
+    
+    <!-- Basic Information Card -->
+    <mat-card class="info-card">
       <mat-card-header>
         <mat-card-title>
           <mat-icon>location_on</mat-icon>
-          Address Details
+          Basic Information
         </mat-card-title>
       </mat-card-header>
       
       <mat-card-content>
         <div class="detail-row">
           <span class="label">Postcode:</span>
-          <span class="value">{{ address.postcode }}</span>
+          <span class="value postcode-value">{{ postcode.postcode }}</span>
         </div>
         <div class="detail-row">
-          <span class="label">Area:</span>
-          <span class="value">{{ address.line1 }}</span>
-        </div>
-        <div class="detail-row" *ngIf="address.line2">
-          <span class="label">Parish:</span>
-          <span class="value">{{ address.line2 }}</span>
+          <span class="label">Outcode:</span>
+          <span class="value">{{ postcode.outcode }}</span>
         </div>
         <div class="detail-row">
-          <span class="label">City:</span>
-          <span class="value">{{ address.city }}</span>
-        </div>
-        <div class="detail-row" *ngIf="address.county">
-          <span class="label">County:</span>
-          <span class="value">{{ address.county }}</span>
+          <span class="label">Incode:</span>
+          <span class="value">{{ postcode.incode }}</span>
         </div>
         <div class="detail-row">
-          <span class="label">Country:</span>
-          <span class="value">{{ address.country }}</span>
+          <span class="label">Quality:</span>
+          <span class="value">
+            <mat-chip [color]="getQualityColor(postcode.quality)" highlighted>
+              {{ postcode.quality }}/10 - {{ getQualityText(postcode.quality) }}
+            </mat-chip>
+          </span>
         </div>
         <div class="detail-row">
-          <span class="label">Coordinates:</span>
-          <span class="value">{{ address.latitude }}, {{ address.longitude }}</span>
+          <span class="label">NHS:</span>
+          <span class="value">{{ postcode.nhs_ha || 'N/A' }}</span>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Nearby Postcodes -->
-    <mat-card *ngIf="nearbyAddresses$ | async as nearbyAddresses" class="nearby-section">
+    <!-- Geographic Information Card -->
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>map</mat-icon>
+          Geographic Details
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="detail-row">
+          <span class="label">Country:</span>
+          <span class="value">{{ postcode.country }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Region:</span>
+          <span class="value">{{ postcode.region || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">European Electoral Region:</span>
+          <span class="value">{{ postcode.european_electoral_region || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Latitude:</span>
+          <span class="value">{{ postcode.latitude | number:'1.6-6' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Longitude:</span>
+          <span class="value">{{ postcode.longitude | number:'1.6-6' }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Administrative Areas Card -->
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>account_balance</mat-icon>
+          Administrative Areas
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="detail-row">
+          <span class="label">Admin District:</span>
+          <span class="value">{{ postcode.admin_district || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Admin County:</span>
+          <span class="value">{{ postcode.admin_county || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Admin Ward:</span>
+          <span class="value">{{ postcode.admin_ward || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Parish:</span>
+          <span class="value">{{ postcode.parish || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Parliamentary Constituency:</span>
+          <span class="value">{{ postcode.parliamentary_constituency || 'N/A' }}</span>
+        </div>
+        
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Statistical Areas Card -->
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>bar_chart</mat-icon>
+          Statistical Areas
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="detail-row">
+          <span class="label">LSOA (Lower Layer Super Output Area):</span>
+          <span class="value">{{ postcode.lsoa || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">MSOA (Middle Layer Super Output Area):</span>
+          <span class="value">{{ postcode.msoa || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">NUTS (Nomenclature of Territorial Units):</span>
+          <span class="value">{{ postcode.nuts || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">CED (County Electoral Division):</span>
+          <span class="value">{{ postcode.ced || 'N/A' }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Healthcare Information Card -->
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>local_hospital</mat-icon>
+          Healthcare Information
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="detail-row">
+          <span class="label">NHS Health Authority:</span>
+          <span class="value">{{ postcode.nhs_ha || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Primary Care Trust:</span>
+          <span class="value">{{ postcode.primary_care_trust || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">CCG (Clinical Commissioning Group):</span>
+          <span class="value">{{ postcode.ccg || 'N/A' }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Nearby Postcodes Card -->
+    <mat-card *ngIf="nearbyPostcodes$ | async as nearbyPostcodes" class="info-card nearby-section">
       <mat-card-header>
         <mat-card-title>
           <mat-icon>near_me</mat-icon>
@@ -124,18 +251,20 @@
       
       <mat-card-content>
         <mat-list>
-          <mat-list-item *ngFor="let nearby of nearbyAddresses">
+          <mat-list-item *ngFor="let nearby of nearbyPostcodes">
             <span matListItemTitle>{{ nearby.postcode }}</span>
-            <span matListItemLine>{{ nearby.city }}</span>
+            <span matListItemLine>{{ nearby.admin_district }}</span>
             <button 
               mat-icon-button 
               matListItemMeta
-              (click)="onPostcodeSelected(nearby.postcode)">
+              (click)="onPostcodeSelected(nearby.postcode)"
+              matTooltip="View details">
               <mat-icon>arrow_forward</mat-icon>
             </button>
           </mat-list-item>
         </mat-list>
       </mat-card-content>
     </mat-card>
+
   </div>
 </div>

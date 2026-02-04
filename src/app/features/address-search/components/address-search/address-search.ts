@@ -1,4 +1,3 @@
-// src/app/features/address-search/components/address-search/address-search.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -23,12 +22,16 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
-import { Address } from '../../models/address.model';
+import { Address, PostcodeResult } from '../../models/address.model';
 import { environment } from '../../../../../environments/environment';
 import { LoadingSpinner } from '../../../../shared/components/loading-spinner/loading-spinner';
 import { ErrorMessage } from '../../../../shared/components/error-message/error-message';
 import { HighlightPipe } from '../../../../shared/pipes/highlight-pipe';
 import { PostcodeApiService } from '../../../../core/services/postcode-api';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { HttpClient, HttpParams } from '@angular/common/http';
 
 @Component({
   selector: 'app-address-search',
@@ -43,6 +46,9 @@ import { PostcodeApiService } from '../../../../core/services/postcode-api';
     MatAutocompleteModule,
     MatCardModule,
     MatListModule,
+    MatChipsModule,
+    MatDividerModule,
+    MatTooltipModule,
     LoadingSpinner,
     ErrorMessage,
     HighlightPipe
@@ -55,13 +61,14 @@ export class AddressSearch implements OnInit, OnDestroy {
   
   searchForm: FormGroup;
   suggestions$!: Observable<string[]>;
-  selectedAddress$: BehaviorSubject<Address | null> = new BehaviorSubject<Address | null>(null);
+  selectedPostcode$: BehaviorSubject<PostcodeResult | null> = new BehaviorSubject<PostcodeResult | null>(null);
   loading$ = new BehaviorSubject<boolean>(false);
   error$ = new BehaviorSubject<string | null>(null);
   
-  nearbyAddresses$: Observable<Address[]> | null = null;
+  nearbyPostcodes$: Observable<PostcodeResult[]> | null = null;
+  suggestionCount$ = new BehaviorSubject<number>(0);
   
-  constructor(private postcodeApiService: PostcodeApiService) {
+  constructor(private postcodeApiService: PostcodeApiService, private http: HttpClient) {
     this.searchForm = new FormGroup({
       postcode: new FormControl('', [
         Validators.required,
@@ -87,7 +94,8 @@ export class AddressSearch implements OnInit, OnDestroy {
         this.loading$.next(true);
         this.error$.next(null);
         
-        return this.postcodeApiService.autocomplete(value, 10).pipe(
+        // Remove limit to get ALL suggestions
+        return this.postcodeApiService.autocomplete(value).pipe(
           catchError(err => {
             this.error$.next(err.message);
             return [];
@@ -96,6 +104,7 @@ export class AddressSearch implements OnInit, OnDestroy {
       }),
       map(suggestions => {
         this.loading$.next(false);
+        this.suggestionCount$.next(suggestions.length);
         return suggestions;
       }),
       takeUntil(this.destroy$)
@@ -103,12 +112,22 @@ export class AddressSearch implements OnInit, OnDestroy {
   }
 
   private setupNearbySearch(): void {
-    this.nearbyAddresses$ = this.selectedAddress$.pipe(
-      filter(address => address !== null),
-      switchMap(address => 
-        this.postcodeApiService.getNearbyPostcodes(address!.postcode, 5)
-      ),
-      catchError(() => []),
+    this.nearbyPostcodes$ = this.selectedPostcode$.pipe(
+      filter(postcode => postcode !== null),
+      switchMap(postcode => {
+        const params = new HttpParams()
+          .set('lat', postcode!.latitude.toString())
+          .set('lon', postcode!.longitude.toString())
+          .set('limit', '5');
+        
+        return this.http.get<any>(
+          `${environment.apiEndpoints.postcodes}/postcodes`,
+          { params }
+        ).pipe(
+          map(response => response.result || []),
+          catchError(() => [])
+        );
+      }),
       takeUntil(this.destroy$)
     );
   }
@@ -120,11 +139,11 @@ export class AddressSearch implements OnInit, OnDestroy {
     this.postcodeApiService.getPostcode(postcode)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (address) => {
+        next: (postcodeData) => {
           this.loading$.next(false);
-          if (address) {
-            this.selectedAddress$.next(address);
-            this.searchForm.patchValue({ postcode: address.postcode });
+          if (postcodeData) {
+            this.selectedPostcode$.next(postcodeData);
+            this.searchForm.patchValue({ postcode: postcodeData.postcode });
           } else {
             this.error$.next('Postcode not found');
           }
@@ -145,8 +164,9 @@ export class AddressSearch implements OnInit, OnDestroy {
 
   clearSearch(): void {
     this.searchForm.reset();
-    this.selectedAddress$.next(null);
+    this.selectedPostcode$.next(null);
     this.error$.next(null);
+    this.suggestionCount$.next(0);
   }
 
   useCurrentLocation(): void {
@@ -159,13 +179,21 @@ export class AddressSearch implements OnInit, OnDestroy {
             position.coords.latitude,
             position.coords.longitude,
             1
-          ).pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: (addresses) => {
-              this.loading$.next(false);
+          ).pipe(
+            takeUntil(this.destroy$),
+            switchMap(addresses => {
               if (addresses.length > 0) {
-                this.selectedAddress$.next(addresses[0]);
-                this.searchForm.patchValue({ postcode: addresses[0].postcode });
+                return this.postcodeApiService.getPostcode(addresses[0].postcode);
+              }
+              throw new Error('No postcode found');
+            })
+          )
+          .subscribe({
+            next: (postcodeData) => {
+              this.loading$.next(false);
+              if (postcodeData) {
+                this.selectedPostcode$.next(postcodeData);
+                this.searchForm.patchValue({ postcode: postcodeData.postcode });
               }
             },
             error: (err) => {
@@ -182,6 +210,19 @@ export class AddressSearch implements OnInit, OnDestroy {
     } else {
       this.error$.next('Geolocation is not supported by your browser');
     }
+  }
+
+  getQualityColor(quality: number): string {
+    if (quality >= 9) return 'primary';
+    if (quality >= 7) return 'accent';
+    return 'warn';
+  }
+
+  getQualityText(quality: number): string {
+    if (quality >= 9) return 'Excellent';
+    if (quality >= 7) return 'Good';
+    if (quality >= 5) return 'Fair';
+    return 'Poor';
   }
 
   ngOnDestroy(): void {

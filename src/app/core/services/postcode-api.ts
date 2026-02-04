@@ -1,14 +1,19 @@
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError, of } from 'rxjs';
+import { catchError, map, retry, shareReplay } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { catchError, map, Observable, of, retry, shareReplay, throwError } from 'rxjs';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { 
+  PostcodeApiResponse, 
+  AutocompleteResponse, 
+  PostcodeResult,
+  Address 
+} from '../../features/address-search/models/address.model';
 import { CacheService } from './cache.service';
-import { Address, AutocompleteResponse, PostcodeApiResponse, PostcodeResult } from '../../features/address-search/models/address.model';
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
-
 export class PostcodeApiService {
   private readonly baseUrl = environment.apiEndpoints.postcodes;
   private inFlightRequests = new Map<string, Observable<any>>();
@@ -19,10 +24,10 @@ export class PostcodeApiService {
   ) {}
 
   /**
-   * Autocomplete postcode search
+   * Autocomplete postcode search - NOW RETURNS ALL RESULTS
    */
-  autocomplete(query: string, limit: number = 10): Observable<string[]> {
-    const cacheKey = `autocomplete_${query}_${limit}`;
+  autocomplete(query: string, limit?: number): Observable<string[]> {
+    const cacheKey = `autocomplete_${query}${limit ? '_' + limit : ''}`;
     
     // Check cache first
     const cached = this.cacheService.get<string[]>(cacheKey);
@@ -35,8 +40,11 @@ export class PostcodeApiService {
       return this.inFlightRequests.get(cacheKey)!;
     }
 
-    const params = new HttpParams()
-      .set('limit', limit.toString());
+    // Build params - only add limit if specified
+    let params = new HttpParams();
+    if (limit) {
+      params = params.set('limit', limit.toString());
+    }
 
     const request$ = this.http.get<AutocompleteResponse>(
       `${this.baseUrl}/postcodes/${encodeURIComponent(query)}/autocomplete`,
@@ -66,12 +74,12 @@ export class PostcodeApiService {
   /**
    * Get detailed postcode information
    */
-  getPostcode(postcode: string): Observable<Address | null> {
+  getPostcode(postcode: string): Observable<PostcodeResult | null> {
     const cleanPostcode = this.cleanPostcode(postcode);
     const cacheKey = `postcode_${cleanPostcode}`;
 
     // Check cache
-    const cached = this.cacheService.get<Address>(cacheKey);
+    const cached = this.cacheService.get<PostcodeResult>(cacheKey);
     if (cached) {
       return of(cached);
     }
@@ -83,9 +91,8 @@ export class PostcodeApiService {
       map(response => {
         if (response.status === 200 && response.result) {
           const result = response.result as PostcodeResult;
-          const address = this.mapToAddress(result);
-          this.cacheService.set(cacheKey, address);
-          return address;
+          this.cacheService.set(cacheKey, result);
+          return result;
         }
         return null;
       }),
@@ -158,14 +165,14 @@ export class PostcodeApiService {
   /**
    * Get random postcode (useful for testing)
    */
-  getRandomPostcode(): Observable<Address | null> {
+  getRandomPostcode(): Observable<PostcodeResult | null> {
     return this.http.get<PostcodeApiResponse>(
       `${this.baseUrl}/random/postcodes`
     ).pipe(
       retry(2),
       map(response => {
         if (response.status === 200 && response.result) {
-          return this.mapToAddress(response.result as PostcodeResult);
+          return response.result as PostcodeResult;
         }
         return null;
       }),
@@ -190,6 +197,32 @@ export class PostcodeApiService {
             .map(item => this.mapToAddress(item));
         }
         return [];
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Get outcode information (e.g., "E1")
+   */
+  getOutcodeInfo(outcode: string): Observable<any> {
+    const cacheKey = `outcode_${outcode}`;
+    
+    const cached = this.cacheService.get<any>(cacheKey);
+    if (cached) {
+      return of(cached);
+    }
+
+    return this.http.get<any>(
+      `${this.baseUrl}/outcodes/${encodeURIComponent(outcode)}`
+    ).pipe(
+      retry(2),
+      map(response => {
+        if (response.status === 200 && response.result) {
+          this.cacheService.set(cacheKey, response.result);
+          return response.result;
+        }
+        return null;
       }),
       catchError(this.handleError)
     );
