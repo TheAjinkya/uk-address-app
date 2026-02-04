@@ -1,1 +1,141 @@
-<p>address-search works!</p>
+<div class="address-search-container">
+  <div class="search-header">
+    <h1>UK Address Finder</h1>
+    <p class="subtitle">Search for any UK postcode</p>
+  </div>
+
+  <form [formGroup]="searchForm" (ngSubmit)="onSubmit()" class="search-form">
+    <div class="search-input-wrapper">
+      <mat-form-field class="search-field" appearance="outline">
+        <mat-label>Enter UK Postcode</mat-label>
+        <input 
+          type="text"
+          matInput
+          formControlName="postcode"
+          [matAutocomplete]="auto"
+          placeholder="e.g., SW1A 1AA"
+          autocomplete="off">
+        
+        <button 
+          mat-icon-button 
+          matSuffix 
+          *ngIf="searchForm.get('postcode')?.value"
+          (click)="clearSearch()"
+          type="button">
+          <mat-icon>close</mat-icon>
+        </button>
+
+        <mat-error *ngIf="searchForm.get('postcode')?.hasError('required')">
+          Postcode is required
+        </mat-error>
+        <mat-error *ngIf="searchForm.get('postcode')?.hasError('pattern')">
+          Please enter a valid UK postcode
+        </mat-error>
+      </mat-form-field>
+
+      <mat-autocomplete 
+        #auto="matAutocomplete" 
+        (optionSelected)="onPostcodeSelected($event.option.value)">
+        <mat-option 
+          *ngFor="let suggestion of suggestions$ | async" 
+          [value]="suggestion">
+          <span [innerHTML]="suggestion | highlight: searchForm.get('postcode')?.value"></span>
+        </mat-option>
+      </mat-autocomplete>
+
+      <button 
+        mat-raised-button 
+        color="primary" 
+        type="submit"
+        [disabled]="!searchForm.valid || (loading$ | async)">
+        Search
+      </button>
+
+      <button 
+        mat-raised-button 
+        type="button"
+        (click)="useCurrentLocation()"
+        class="location-btn">
+        <mat-icon>my_location</mat-icon>
+        Use My Location
+      </button>
+    </div>
+  </form>
+
+  <!-- Loading Spinner -->
+  <app-loading-spinner *ngIf="loading$ | async"></app-loading-spinner>
+
+  <!-- Error Message -->
+  <app-error-message 
+    *ngIf="error$ | async as error" 
+    [message]="error">
+  </app-error-message>
+
+  <!-- Selected Address Display -->
+  <div *ngIf="selectedAddress$ | async as address" class="address-details">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>location_on</mat-icon>
+          Address Details
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="detail-row">
+          <span class="label">Postcode:</span>
+          <span class="value">{{ address.postcode }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Area:</span>
+          <span class="value">{{ address.line1 }}</span>
+        </div>
+        <div class="detail-row" *ngIf="address.line2">
+          <span class="label">Parish:</span>
+          <span class="value">{{ address.line2 }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">City:</span>
+          <span class="value">{{ address.city }}</span>
+        </div>
+        <div class="detail-row" *ngIf="address.county">
+          <span class="label">County:</span>
+          <span class="value">{{ address.county }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Country:</span>
+          <span class="value">{{ address.country }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Coordinates:</span>
+          <span class="value">{{ address.latitude }}, {{ address.longitude }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Nearby Postcodes -->
+    <mat-card *ngIf="nearbyAddresses$ | async as nearbyAddresses" class="nearby-section">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>near_me</mat-icon>
+          Nearby Postcodes
+        </mat-card-title>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let nearby of nearbyAddresses">
+            <span matListItemTitle>{{ nearby.postcode }}</span>
+            <span matListItemLine>{{ nearby.city }}</span>
+            <button 
+              mat-icon-button 
+              matListItemMeta
+              (click)="onPostcodeSelected(nearby.postcode)">
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
