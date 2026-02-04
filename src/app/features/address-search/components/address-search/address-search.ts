@@ -1,14 +1,8 @@
+// src/app/features/address-search/components/address-search/address-search.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, Subject, BehaviorSubject, combineLatest } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
-import { MatListModule } from '@angular/material/list';
+import { FormControl, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { 
   debounceTime, 
   distinctUntilChanged, 
@@ -19,32 +13,42 @@ import {
   startWith,
   catchError
 } from 'rxjs/operators';
+
+// Material imports
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatCardModule } from '@angular/material/card';
+import { MatListModule } from '@angular/material/list';
+
 import { Address } from '../../models/address.model';
 import { environment } from '../../../../../environments/environment';
-import { PostcodeApiService } from '../../../../core/services/postcode-api';
+import { LoadingSpinner } from '../../../../shared/components/loading-spinner/loading-spinner';
+import { ErrorMessage } from '../../../../shared/components/error-message/error-message';
 import { HighlightPipe } from '../../../../shared/pipes/highlight-pipe';
-import { LoadingSpinner } from "../../../../shared/components/loading-spinner/loading-spinner";
-import { ErrorMessage } from "../../../../shared/components/error-message/error-message";
+import { PostcodeApiService } from '../../../../core/services/postcode-api';
 
 @Component({
-  standalone: true,
   selector: 'app-address-search',
-  templateUrl: './address-search.html',
-  styleUrls: ['./address-search.scss'],
+  standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatAutocompleteModule,
     MatButtonModule,
     MatIconModule,
+    MatAutocompleteModule,
     MatCardModule,
     MatListModule,
-    HighlightPipe,
     LoadingSpinner,
-    ErrorMessage
-]
+    ErrorMessage,
+    HighlightPipe
+  ],
+  templateUrl: './address-search.html',
+  styleUrls: ['./address-search.scss']
 })
 export class AddressSearch implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();

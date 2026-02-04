@@ -1,8 +1,9 @@
 import { Component } from '@angular/core';
+import { MatSpinner } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-loading-spinner',
-  imports: [],
+  imports: [MatSpinner],
   templateUrl: './loading-spinner.html',
   styleUrl: './loading-spinner.scss',
 })

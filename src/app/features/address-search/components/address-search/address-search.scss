@@ -1,0 +1,137 @@
+.address-search-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+
+  .search-header {
+    text-align: center;
+    margin-bottom: 2rem;
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #1a237e;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 1.1rem;
+    }
+  }
+
+  .search-form {
+    margin-bottom: 2rem;
+
+    .search-input-wrapper {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+
+      .search-field {
+        flex: 1;
+        min-width: 250px;
+      }
+
+      button {
+        height: 56px;
+      }
+
+      .location-btn {
+        mat-icon {
+          margin-right: 0.5rem;
+        }
+      }
+    }
+  }
+
+  .address-details {
+    animation: fadeIn 0.3s ease-in;
+
+    mat-card {
+      margin-bottom: 1.5rem;
+
+      mat-card-header {
+        margin-bottom: 1rem;
+
+        mat-card-title {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 1.5rem;
+          color: #1a237e;
+        }
+      }
+
+      .detail-row {
+        display: flex;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .label {
+          font-weight: 600;
+          min-width: 150px;
+          color: #666;
+        }
+
+        .value {
+          flex: 1;
+          color: #333;
+        }
+      }
+    }
+
+    .nearby-section {
+      mat-list-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: #f5f5f5;
+        }
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .address-search-container {
+    .search-header h1 {
+      font-size: 2rem;
+    }
+
+    .search-form .search-input-wrapper {
+      flex-direction: column;
+
+      .search-field,
+      button {
+        width: 100%;
+      }
+    }
+
+    .address-details .detail-row {
+      flex-direction: column;
+      gap: 0.25rem;
+
+      .label {
+        min-width: auto;
+      }
+    }
+  }
+}
