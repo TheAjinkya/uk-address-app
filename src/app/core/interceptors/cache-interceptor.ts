@@ -6,7 +6,6 @@ import { CacheService } from '../services/cache.service';
 export const cacheInterceptor: HttpInterceptorFn = (req, next) => {
   const cacheService = inject(CacheService);
 
-  // Only cache GET requests
   if (req.method !== 'GET') {
     return next(req);
   }
